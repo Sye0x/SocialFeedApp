@@ -13,6 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { COLORS } from '../constants/colorscheme';
 
+// Firebase
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
 export default function Register({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -23,24 +27,44 @@ export default function Register({ navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [errors, setErrors] = useState({});
+  const [generalError, setGeneralError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const clearMessages = () => {
+    setGeneralError('');
+    setSuccessMessage('');
+  };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedName) {
       newErrors.name = 'Name is required';
+    } else if (/\d/.test(trimmedName)) {
+      newErrors.name = 'Name should not contain numbers';
+    } else if (trimmedName.length < 3) {
+      newErrors.name = 'Name must be at least 3 characters';
     }
 
-    if (!email.trim()) {
+    if (!trimmedEmail) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
       newErrors.email = 'Enter a valid email address';
     }
 
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    } else if (
+      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[.@$!%*?&]).{8,}/.test(password)
+    ) {
+      newErrors.password =
+        'Password must contain uppercase, lowercase, number, and special character';
     }
 
     if (!confirmPassword) {
@@ -53,10 +77,64 @@ export default function Register({ navigation }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleRegister = () => {
-    if (validateForm()) {
-      console.log('Register successful');
-      console.log({ name, email, password, confirmPassword });
+  const getFirebaseErrorMessage = error => {
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        return 'This email is already registered.';
+      case 'auth/invalid-email':
+        return 'The email address is invalid.';
+      case 'auth/weak-password':
+        return 'Password is too weak.';
+      case 'auth/network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'auth/too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled.';
+      default:
+        return 'Registration failed. Please try again.';
+    }
+  };
+
+  const handleRegister = async () => {
+    clearMessages();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    try {
+      const userCredential = await auth().createUserWithEmailAndPassword(
+        trimmedEmail,
+        password,
+      );
+
+      const uid = userCredential.user.uid;
+
+      await firestore().collection('users').doc(uid).set({
+        uid: uid,
+        name: trimmedName,
+        email: trimmedEmail,
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+      setSuccessMessage('Account created successfully.');
+
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setErrors({});
+    } catch (error) {
+      console.log('Register Error:', error);
+      setGeneralError(getFirebaseErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,6 +152,18 @@ export default function Register({ navigation }) {
             <Text style={styles.title}>Register</Text>
             <Text style={styles.subtitle}>Create your account</Text>
 
+            {generalError ? (
+              <View style={styles.messageBoxError}>
+                <Text style={styles.messageTextError}>{generalError}</Text>
+              </View>
+            ) : null}
+
+            {successMessage ? (
+              <View style={styles.messageBoxSuccess}>
+                <Text style={styles.messageTextSuccess}>{successMessage}</Text>
+              </View>
+            ) : null}
+
             <TextInput
               style={styles.input}
               placeholder="Enter your name"
@@ -81,7 +171,10 @@ export default function Register({ navigation }) {
               value={name}
               onChangeText={text => {
                 setName(text);
-                if (errors.name) setErrors({ ...errors, name: '' });
+                if (errors.name) {
+                  setErrors(prev => ({ ...prev, name: '' }));
+                }
+                clearMessages();
               }}
             />
             {errors.name ? (
@@ -94,10 +187,14 @@ export default function Register({ navigation }) {
               placeholderTextColor={COLORS.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
               value={email}
               onChangeText={text => {
                 setEmail(text);
-                if (errors.email) setErrors({ ...errors, email: '' });
+                if (errors.email) {
+                  setErrors(prev => ({ ...prev, email: '' }));
+                }
+                clearMessages();
               }}
             />
             {errors.email ? (
@@ -110,10 +207,15 @@ export default function Register({ navigation }) {
                 placeholder="Enter your password"
                 placeholderTextColor={COLORS.textMuted}
                 secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
                 value={password}
                 onChangeText={text => {
                   setPassword(text);
-                  if (errors.password) setErrors({ ...errors, password: '' });
+                  if (errors.password) {
+                    setErrors(prev => ({ ...prev, password: '' }));
+                  }
+                  clearMessages();
                 }}
               />
               <TouchableOpacity
@@ -137,12 +239,15 @@ export default function Register({ navigation }) {
                 placeholder="Confirm your password"
                 placeholderTextColor={COLORS.textMuted}
                 secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
                 value={confirmPassword}
                 onChangeText={text => {
                   setConfirmPassword(text);
                   if (errors.confirmPassword) {
-                    setErrors({ ...errors, confirmPassword: '' });
+                    setErrors(prev => ({ ...prev, confirmPassword: '' }));
                   }
+                  clearMessages();
                 }}
               />
               <TouchableOpacity
@@ -160,13 +265,18 @@ export default function Register({ navigation }) {
               <Text style={styles.errorText}>{errors.confirmPassword}</Text>
             ) : null}
 
-            <TouchableOpacity style={styles.button} onPress={handleRegister}>
-              <Text style={styles.buttonText}>Register</Text>
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Creating Account...' : 'Register'}
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.footerRow}>
               <Text style={styles.footerText}>Already have an account? </Text>
-
               <TouchableOpacity onPress={() => navigation.goBack()}>
                 <Text style={styles.signInText}>Login</Text>
               </TouchableOpacity>
@@ -210,6 +320,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  messageBoxError: {
+    backgroundColor: 'rgba(255, 77, 79, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 77, 79, 0.35)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  messageTextError: {
+    color: COLORS.error,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  messageBoxSuccess: {
+    backgroundColor: 'rgba(46, 204, 113, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(46, 204, 113, 0.35)',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  messageTextSuccess: {
+    color: '#2ECC71',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
   input: {
     backgroundColor: COLORS.surfaceLight,
     color: COLORS.textPrimary,
@@ -248,6 +387,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#FFFFFF',

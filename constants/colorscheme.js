@@ -1,19 +1,21 @@
 export const COLORS = {
-  background: '#0F172A',
-  surface: '#1E293B',
-  surfaceLight: '#334155',
+  background: '#0B0F19',
+  surface: '#121826',
+  surfaceLight: '#1C2433',
 
-  primary: '#3B82F6',
-  primaryDark: '#2563EB',
+  primary: '#1E3A8A', // deep royal blue
+  primaryDark: '#1E40AF',
 
-  textPrimary: '#F8FAFC',
-  textSecondary: '#CBD5F5',
-  textMuted: '#94A3B8',
+  accent: '#C9A227', // muted gold
 
-  success: '#22C55E',
-  error: '#EF4444',
-  warning: '#F59E0B',
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
 
-  border: '#334155',
-  disabled: '#64748B',
+  success: '#16A34A',
+  error: '#DC2626',
+  warning: '#D97706',
+
+  border: '#2A3446',
+  disabled: '#6B7280',
 };

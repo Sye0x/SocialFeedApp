@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "943939658219",
+    "project_id": "socialfeed-cff80",
+    "storage_bucket": "socialfeed-cff80.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:943939658219:android:b2f625dfc3f1dc564b39ae",
+        "android_client_info": {
+          "package_name": "com.socialfeedapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-KT1SLZ1_7jXtFM-h0pDPF57FHFVC7DQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
