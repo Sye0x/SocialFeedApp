@@ -1,9 +1,10 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 // @ts-ignore
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { COLORS } from './constants/colorscheme';
@@ -13,6 +14,11 @@ import Register from './screens/SignUpScreen';
 import ForgotPassword from './screens/ForgotPasswordScreen';
 import FeedScreen from './screens/FeedScreen';
 import ProfileScreen from './screens/ProfileScreen';
+
+//redux
+import { Provider } from 'react-redux';
+import { store, persistor } from './redux/store';
+import { PersistGate } from 'redux-persist/integration/react';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -42,21 +48,11 @@ function MyTabs() {
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          marginBottom: 4,
-        },
-        tabBarItemStyle: {
-          borderRadius: 14,
-          marginHorizontal: 4,
-          marginVertical: 6,
-        },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName = 'circle';
 
           if (route.name === 'Feed') {
-            iconName = focused ? 'home' : 'home';
+            iconName = 'home';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'user' : 'user-o';
           }
@@ -74,56 +70,106 @@ function MyTabs() {
             </View>
           );
         },
-        tabBarLabel: ({ focused, color }) => (
-          <Text
-            style={{
-              color,
-              fontSize: 12,
-              fontWeight: focused ? '700' : '500',
-              marginBottom: 2,
-            }}
-          >
-            {route.name}
-          </Text>
-        ),
       })}
     >
-      <Tab.Screen
-        name="Feed"
-        component={FeedScreen}
-        options={{
-          tabBarAccessibilityLabel: 'Feed tab',
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarAccessibilityLabel: 'Profile tab',
-        }}
-      />
+      <Tab.Screen name="Feed" component={FeedScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
-export default function App() {
+function AuthStack() {
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName="Login"
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: COLORS.background },
-            animation: 'fade_from_bottom',
-          }}
-        >
-          <Stack.Screen name="Login" component={Login} />
-          <Stack.Screen name="Register" component={Register} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
-          <Stack.Screen name="Home" component={MyTabs} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: COLORS.background },
+        animation: 'fade_from_bottom',
+      }}
+    >
+      <Stack.Screen name="Login" component={Login} />
+      <Stack.Screen name="Register" component={Register} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+    </Stack.Navigator>
   );
 }
+
+function AppStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: COLORS.background },
+        animation: 'fade_from_bottom',
+      }}
+    >
+      <Stack.Screen name="HomeTabs" component={MyTabs} />
+    </Stack.Navigator>
+  );
+}
+
+function SplashScreen() {
+  return (
+    <View style={styles.splashContainer}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+      <Text style={styles.splashText}>Checking session...</Text>
+    </View>
+  );
+}
+
+export default function App(): React.JSX.Element {
+  const [initializing, setInitializing] = useState<boolean>(true);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(
+      (currentUser: FirebaseAuthTypes.User | null) => {
+        setUser(currentUser);
+
+        if (initializing) {
+          setInitializing(false);
+        }
+      },
+    );
+
+    return unsubscribe;
+  }, [initializing]);
+
+  if (initializing) {
+    return (
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <SafeAreaProvider>
+            <SplashScreen />
+          </SafeAreaProvider>
+        </PersistGate>
+      </Provider>
+    );
+  }
+
+  return (
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            {user ? <AppStack /> : <AuthStack />}
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </PersistGate>
+    </Provider>
+  );
+}
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splashText: {
+    marginTop: 12,
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+});

@@ -12,6 +12,9 @@ import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { COLORS } from '../constants/colorscheme';
 
+//redux
+import { useAppDispatch } from '../redux/hooks';
+
 export default function ProfileScreen({ navigation }) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -58,7 +61,6 @@ export default function ProfileScreen({ navigation }) {
     try {
       setLogoutLoading(true);
       await auth().signOut();
-      navigation.replace('Login');
     } catch (error) {
       console.log('Logout error:', error);
       setErrorMessage('Something went wrong while logging out.');
@@ -110,24 +112,6 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.email}>
                 {user?.email || 'No email found'}
               </Text>
-
-              <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Name</Text>
-                  <Text style={styles.infoValue}>{displayName}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Email</Text>
-                  <Text style={styles.infoValue}>
-                    {user?.email || 'No email found'}
-                  </Text>
-                </View>
-
-                <View style={styles.divider} />
-              </View>
             </>
           )}
         </View>

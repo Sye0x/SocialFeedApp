@@ -91,7 +91,6 @@ export default function Login({ navigation }) {
       const user = userCredential.user || auth().currentUser;
 
       if (user) {
-        navigation.replace('Home');
       } else {
         setGeneralError('Login succeeded, but user session was not found.');
       }
