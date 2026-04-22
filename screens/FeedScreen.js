@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
 
 import { COLORS } from '../constants/colorscheme';
 import { fetchPosts, toggleLike, setLikedPosts } from '../redux/postsSlice';
@@ -13,6 +12,12 @@ import PostCard from '../components/feed/PostCard';
 import FeedLoading from '../components/feed/FeedLoading';
 import FeedError from '../components/feed/FeedError';
 import FeedEmpty from '../components/feed/FeedEmpty';
+
+import {
+  subscribeToLikedPosts,
+  updateLikedPost,
+} from '../services/app/feedService';
+import { getPostKey, isPostLiked } from '../utils/app/feedUtils';
 
 export default function FeedScreen() {
   const dispatch = useAppDispatch();
@@ -32,30 +37,18 @@ export default function FeedScreen() {
   useEffect(() => {
     const user = auth().currentUser;
 
-    if (!user?.uid) {
-      dispatch(setLikedPosts([]));
-      setLikesLoading(false);
-      return;
-    }
-
-    const unsubscribe = firestore()
-      .collection('users')
-      .doc(user.uid)
-      .onSnapshot(
-        documentSnapshot => {
-          if (documentSnapshot.exists()) {
-            const data = documentSnapshot.data();
-            dispatch(setLikedPosts(data?.likedPostIds || []));
-          } else {
-            dispatch(setLikedPosts([]));
-          }
-          setLikesLoading(false);
-        },
-        error => {
-          console.log('Liked posts listener error:', error);
-          setLikesLoading(false);
-        },
-      );
+    const unsubscribe = subscribeToLikedPosts(
+      user?.uid,
+      likedIds => {
+        dispatch(setLikedPosts(likedIds));
+        setLikesLoading(false);
+      },
+      errorMessage => {
+        dispatch(setLikedPosts([]));
+        setLikesLoading(false);
+        console.log(errorMessage);
+      },
+    );
 
     return unsubscribe;
   }, [dispatch]);
@@ -66,32 +59,23 @@ export default function FeedScreen() {
 
   const handleToggleLike = async postId => {
     const user = auth().currentUser;
-    if (!user?.uid) return;
 
-    const alreadyLiked = likedPostIds.includes(postId);
+    if (!user?.uid) {
+      return;
+    }
+
+    const alreadyLiked = isPostLiked(likedPostIds, postId);
 
     // instant UI update
     dispatch(toggleLike(postId));
 
     try {
-      if (alreadyLiked) {
-        await firestore()
-          .collection('users')
-          .doc(user.uid)
-          .update({
-            likedPostIds: firestore.FieldValue.arrayRemove(postId),
-          });
-      } else {
-        await firestore()
-          .collection('users')
-          .doc(user.uid)
-          .update({
-            likedPostIds: firestore.FieldValue.arrayUnion(postId),
-          });
-      }
+      await updateLikedPost({
+        uid: user.uid,
+        postId,
+        alreadyLiked,
+      });
     } catch (error) {
-      console.log('Toggle like error:', error);
-
       // rollback if firestore write fails
       dispatch(toggleLike(postId));
     }
@@ -127,7 +111,7 @@ export default function FeedScreen() {
 
       <FlatList
         data={posts}
-        keyExtractor={item => item.id.toString()}
+        keyExtractor={getPostKey}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={<FeedHeader onRefresh={handleRefresh} />}
@@ -135,7 +119,7 @@ export default function FeedScreen() {
         renderItem={({ item }) => (
           <PostCard
             item={item}
-            liked={likedPostIds.includes(item.id)}
+            liked={isPostLiked(likedPostIds, item.id)}
             onToggleLike={() => handleToggleLike(item.id)}
           />
         )}

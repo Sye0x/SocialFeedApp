@@ -13,7 +13,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { COLORS } from '../constants/colorscheme';
-import auth from '@react-native-firebase/auth';
+
+import { validateLoginForm } from '../utils/validation/loginValidation';
+import { loginUser } from '../services/auth/loginService';
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
@@ -30,73 +32,33 @@ export default function Login({ navigation }) {
     setSuccessMessage('');
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedEmail) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      newErrors.email = 'Enter a valid email address';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const getFirebaseErrorMessage = error => {
-    switch (error.code) {
-      case 'auth/invalid-email':
-        return 'The email address is invalid.';
-      case 'auth/invalid-credential':
-        return 'Invalid email or password.';
-      case 'auth/user-not-found':
-        return 'No account found with this email.';
-      case 'auth/wrong-password':
-        return 'Incorrect password.';
-      case 'auth/user-disabled':
-        return 'This account has been disabled.';
-      case 'auth/network-request-failed':
-        return 'Network error. Please check your internet connection.';
-      case 'auth/too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      default:
-        return 'Login failed. Please try again.';
-    }
-  };
-
   const handleLogin = async () => {
     clearMessages();
 
-    if (!validateForm()) {
+    const formData = {
+      email,
+      password,
+    };
+
+    const validationErrors = validateLoginForm(formData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
+    setErrors({});
     setLoading(true);
 
-    const trimmedEmail = email.trim().toLowerCase();
-
     try {
-      const userCredential = await auth().signInWithEmailAndPassword(
-        trimmedEmail,
+      await loginUser({
+        email,
         password,
-      );
+      });
 
       setSuccessMessage('Login successful.');
-
-      const user = userCredential.user || auth().currentUser;
-
-      if (user) {
-      } else {
-        setGeneralError('Login succeeded, but user session was not found.');
-      }
     } catch (error) {
-      console.log('Login Error:', error);
-      setGeneralError(getFirebaseErrorMessage(error));
+      setGeneralError(error.message || 'Something went wrong.');
     } finally {
       setLoading(false);
     }

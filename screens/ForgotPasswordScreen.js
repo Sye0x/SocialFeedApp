@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colorscheme';
-import auth from '@react-native-firebase/auth';
+
+import { validateForgotPasswordEmail } from '../utils/validation/forgotPasswordValidation';
+import { sendPasswordReset } from '../services/auth/forgotPasswordService';
 
 export default function ForgotPassword({ navigation }) {
   const [email, setEmail] = useState('');
@@ -20,35 +22,13 @@ export default function ForgotPassword({ navigation }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const validateEmail = () => {
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedEmail) {
-      return 'Email is required';
-    }
-
-    if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      return 'Enter a valid email';
-    }
-
-    return '';
-  };
-
-  const getFirebaseErrorMessage = firebaseError => {
-    switch (firebaseError.code) {
-      case 'auth/invalid-email':
-        return 'The email address is invalid.';
-      case 'auth/network-request-failed':
-        return 'Network error. Please check your internet connection.';
-      case 'auth/too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      default:
-        return 'Could not send reset email. Please try again.';
-    }
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
   };
 
   const handleReset = async () => {
-    const validationError = validateEmail();
+    const validationError = validateForgotPasswordEmail(email);
 
     if (validationError) {
       setError(validationError);
@@ -57,21 +37,17 @@ export default function ForgotPassword({ navigation }) {
     }
 
     setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const trimmedEmail = email.trim().toLowerCase();
+    clearMessages();
 
     try {
-      await auth().sendPasswordResetEmail(trimmedEmail);
+      await sendPasswordReset(email);
 
       setSuccess(
         'If an account with this email exists, a reset link has been sent. Check spam folder if you can not find it in inbox',
       );
       setEmail('');
-    } catch (firebaseError) {
-      console.log('Forgot Password Error:', firebaseError);
-      setError(getFirebaseErrorMessage(firebaseError));
+    } catch (error) {
+      setError(error.message || 'Something went wrong.');
     } finally {
       setLoading(false);
     }
@@ -103,8 +79,7 @@ export default function ForgotPassword({ navigation }) {
               value={email}
               onChangeText={text => {
                 setEmail(text);
-                setError('');
-                setSuccess('');
+                clearMessages();
               }}
             />
 
