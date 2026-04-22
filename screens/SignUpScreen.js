@@ -13,9 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { COLORS } from '../constants/colorscheme';
 
-// Firebase
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { validateRegisterForm } from '../utils/validation/registerValidation';
+import { registerUser } from '../services/auth/registerService';
 
 export default function Register({ navigation }) {
   const [name, setName] = useState('');
@@ -36,103 +35,41 @@ export default function Register({ navigation }) {
     setSuccessMessage('');
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedName) {
-      newErrors.name = 'Name is required';
-    } else if (/\d/.test(trimmedName)) {
-      newErrors.name = 'Name should not contain numbers';
-    } else if (trimmedName.length < 3) {
-      newErrors.name = 'Name must be at least 3 characters';
-    }
-
-    if (!trimmedEmail) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-      newErrors.email = 'Enter a valid email address';
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
-    } else if (
-      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[.@$!%*?&]).{8,}/.test(password)
-    ) {
-      newErrors.password =
-        'Password must contain uppercase, lowercase, number, and special character';
-    }
-
-    if (!confirmPassword) {
-      newErrors.confirmPassword = 'Confirm password is required';
-    } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const getFirebaseErrorMessage = error => {
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        return 'This email is already registered.';
-      case 'auth/invalid-email':
-        return 'The email address is invalid.';
-      case 'auth/weak-password':
-        return 'Password is too weak.';
-      case 'auth/network-request-failed':
-        return 'Network error. Please check your internet connection.';
-      case 'auth/too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'auth/user-disabled':
-        return 'This account has been disabled.';
-      default:
-        return 'Registration failed. Please try again.';
-    }
-  };
-
   const handleRegister = async () => {
     clearMessages();
 
-    if (!validateForm()) {
+    const formData = {
+      name,
+      email,
+      password,
+      confirmPassword,
+    };
+
+    const validationErrors = validateRegisterForm(formData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
+    setErrors({});
     setLoading(true);
 
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim().toLowerCase();
-
     try {
-      const userCredential = await auth().createUserWithEmailAndPassword(
-        trimmedEmail,
+      await registerUser({
+        name,
+        email,
         password,
-      );
-
-      const uid = userCredential.user.uid;
-
-      await firestore().collection('users').doc(uid).set({
-        uid: uid,
-        name: trimmedName,
-        email: trimmedEmail,
-        createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
       setSuccessMessage('Account created successfully.');
-
       setName('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
       setErrors({});
     } catch (error) {
-      console.log('Register Error:', error);
-      setGeneralError(getFirebaseErrorMessage(error));
+      setGeneralError(error.message || 'Something went wrong.');
     } finally {
       setLoading(false);
     }

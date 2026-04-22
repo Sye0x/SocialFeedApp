@@ -1,19 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { COLORS } from '../constants/colorscheme';
 
-//redux
-import { useAppDispatch } from '../redux/hooks';
+import ProfileHeader from '../components/profile/ProfileHeader';
+import ProfileErrorMessage from '../components/profile/ProfileErrorMessage';
+import ProfileCard from '../components/profile/ProfileCard';
+import LogoutButton from '../components/profile/LogoutButton';
 
 export default function ProfileScreen({ navigation }) {
   const [logoutLoading, setLogoutLoading] = useState(false);
@@ -80,53 +75,22 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-          <Text style={styles.subtitle}>Your account information</Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <ProfileHeader />
 
-        {errorMessage ? (
-          <View style={styles.messageBoxError}>
-            <Text style={styles.messageTextError}>{errorMessage}</Text>
-          </View>
-        ) : null}
+        {errorMessage ? <ProfileErrorMessage message={errorMessage} /> : null}
 
-        <View style={styles.profileCard}>
-          <View style={styles.avatarWrapper}>
-            <View style={styles.avatarOuter}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{avatarLetter}</Text>
-              </View>
-            </View>
-          </View>
+        <ProfileCard
+          profileLoading={profileLoading}
+          avatarLetter={avatarLetter}
+          displayName={displayName}
+          email={user?.email || 'No email found'}
+        />
 
-          {profileLoading ? (
-            <View style={styles.profileLoadingWrapper}>
-              <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.loadingText}>Loading profile...</Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.name}>{displayName}</Text>
-              <Text style={styles.email}>
-                {user?.email || 'No email found'}
-              </Text>
-            </>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.logoutButton, logoutLoading && styles.disabledButton]}
-          onPress={handleLogout}
-          disabled={logoutLoading}
-        >
-          {logoutLoading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.logoutText}>Logout</Text>
-          )}
-        </TouchableOpacity>
+        <LogoutButton loading={logoutLoading} onPress={handleLogout} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -141,135 +105,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 30,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  messageBoxError: {
-    backgroundColor: 'rgba(255, 77, 79, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 77, 79, 0.35)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  messageTextError: {
-    color: COLORS.error,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  profileCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 26,
-    paddingBottom: 22,
-    marginBottom: 22,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  avatarWrapper: {
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  avatarOuter: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    fontWeight: 'bold',
-  },
-  profileLoadingWrapper: {
-    alignItems: 'center',
-    paddingVertical: 18,
-  },
-  loadingText: {
-    color: COLORS.textSecondary,
-    marginTop: 10,
-    fontSize: 14,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  email: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 22,
-  },
-  infoSection: {
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  infoRow: {
-    paddingVertical: 14,
-  },
-  infoLabel: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    marginBottom: 6,
-  },
-  infoValue: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontWeight: '600',
-  },
-  infoValueSmall: {
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  logoutButton: {
-    backgroundColor: COLORS.error,
-    paddingVertical: 15,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

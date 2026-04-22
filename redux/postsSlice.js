@@ -36,6 +36,9 @@ const postsSlice = createSlice({
         state.likedPostIds.push(postId);
       }
     },
+    setLikedPosts: (state, action) => {
+      state.likedPostIds = action.payload || [];
+    },
     clearPostsState: state => {
       state.posts = [];
       state.loading = false;
@@ -61,5 +64,7 @@ const postsSlice = createSlice({
   },
 });
 
-export const { toggleLike, clearPostsState } = postsSlice.actions;
+export const { toggleLike, setLikedPosts, clearPostsState } =
+  postsSlice.actions;
+
 export default postsSlice.reducer;

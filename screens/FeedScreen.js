@@ -1,18 +1,20 @@
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { FlatList, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
 import { COLORS } from '../constants/colorscheme';
-import { fetchPosts, toggleLike } from '../redux/postsSlice';
+import { fetchPosts, toggleLike, setLikedPosts } from '../redux/postsSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 
-export default function FeedScreen({ navigation }) {
+import FeedHeader from '../components/feed/FeedHeader';
+import PostCard from '../components/feed/PostCard';
+import FeedLoading from '../components/feed/FeedLoading';
+import FeedError from '../components/feed/FeedError';
+import FeedEmpty from '../components/feed/FeedEmpty';
+
+export default function FeedScreen() {
   const dispatch = useAppDispatch();
 
   const postsState = useAppSelector(state => state.posts);
@@ -21,74 +23,125 @@ export default function FeedScreen({ navigation }) {
   const error = postsState?.error || null;
   const likedPostIds = postsState?.likedPostIds || [];
 
+  const [likesLoading, setLikesLoading] = useState(true);
+
   useEffect(() => {
-    if (posts.length === 0) {
-      dispatch(fetchPosts());
+    dispatch(fetchPosts());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const user = auth().currentUser;
+
+    if (!user?.uid) {
+      dispatch(setLikedPosts([]));
+      setLikesLoading(false);
+      return;
     }
+
+    const unsubscribe = firestore()
+      .collection('users')
+      .doc(user.uid)
+      .onSnapshot(
+        documentSnapshot => {
+          if (documentSnapshot.exists()) {
+            const data = documentSnapshot.data();
+            dispatch(setLikedPosts(data?.likedPostIds || []));
+          } else {
+            dispatch(setLikedPosts([]));
+          }
+          setLikesLoading(false);
+        },
+        error => {
+          console.log('Liked posts listener error:', error);
+          setLikesLoading(false);
+        },
+      );
+
+    return unsubscribe;
   }, [dispatch]);
 
   const handleRefresh = () => {
     dispatch(fetchPosts());
   };
 
-  const renderPost = ({ item }) => {
-    const liked = likedPostIds.includes(item.id);
+  const handleToggleLike = async postId => {
+    const user = auth().currentUser;
+    if (!user?.uid) return;
 
-    return (
-      <View style={styles.card}>
-        <Text style={styles.postTitle}>{item.title}</Text>
-        <Text style={styles.postBody}>{item.body}</Text>
+    const alreadyLiked = likedPostIds.includes(postId);
 
-        <TouchableOpacity
-          style={[styles.likeButton, liked && styles.likedButton]}
-          onPress={() => dispatch(toggleLike(item.id))}
-        >
-          <Text style={styles.likeButtonText}>{liked ? 'Unlike' : 'Like'}</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    // instant UI update
+    dispatch(toggleLike(postId));
+
+    try {
+      if (alreadyLiked) {
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            likedPostIds: firestore.FieldValue.arrayRemove(postId),
+          });
+      } else {
+        await firestore()
+          .collection('users')
+          .doc(user.uid)
+          .update({
+            likedPostIds: firestore.FieldValue.arrayUnion(postId),
+          });
+      }
+    } catch (error) {
+      console.log('Toggle like error:', error);
+
+      // rollback if firestore write fails
+      dispatch(toggleLike(postId));
+    }
   };
+
+  if (loading || likesLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={COLORS.background}
+        />
+        <FeedLoading />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={COLORS.background}
+        />
+        <FeedError error={error} onRetry={() => dispatch(fetchPosts())} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Feed</Text>
-          <Text style={styles.subtitle}>Latest posts</Text>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-      <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
-        <Text style={styles.refreshText}>Refresh Posts</Text>
-      </TouchableOpacity>
-
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading posts...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => dispatch(fetchPosts())}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={item => item.id.toString()}
-          renderItem={renderPost}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No posts available</Text>
-          }
-        />
-      )}
+      <FlatList
+        data={posts}
+        keyExtractor={item => item.id.toString()}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={<FeedHeader onRefresh={handleRefresh} />}
+        ListEmptyComponent={<FeedEmpty />}
+        renderItem={({ item }) => (
+          <PostCard
+            item={item}
+            liked={likedPostIds.includes(item.id)}
+            onToggleLike={() => handleToggleLike(item.id)}
+          />
+        )}
+        refreshing={loading}
+        onRefresh={handleRefresh}
+      />
     </SafeAreaView>
   );
 }
@@ -97,114 +150,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    paddingHorizontal: 16,
-  },
-  header: {
-    marginTop: 10,
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  profileButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  profileButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  refreshButton: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  refreshText: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontWeight: 'bold',
   },
   listContent: {
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-  },
-  postTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: COLORS.textPrimary,
-    marginBottom: 8,
-    textTransform: 'capitalize',
-  },
-  postBody: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  likeButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  likedButton: {
-    backgroundColor: COLORS.error,
-  },
-  likeButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: COLORS.textMuted,
-    marginTop: 30,
-    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 120,
   },
 });
