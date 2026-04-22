@@ -12,6 +12,7 @@ A modern mobile application built with **React Native** that demonstrates authen
 * User Login
 * Logout functionality
 * Persistent session using Firebase Auth listener
+* Forgot Password
 
 ---
 
