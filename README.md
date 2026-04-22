@@ -71,77 +71,163 @@ A modern mobile application built with **React Native** that demonstrates authen
 project-root/
 │
 ├── api/
-│   └── postApi.js                 # API request for fetching posts
+│   └── postApi.js                  # API request for fetching posts
 │
 ├── components/
 │   ├── feed/
-│   │   ├── FeedEmpty.js           # Empty state UI for feed
-│   │   ├── FeedError.js           # Error state UI for feed
-│   │   ├── FeedHeader.js          # Feed header with refresh action
-│   │   ├── FeedLoading.js         # Loading UI for feed
-│   │   └── PostCard.js            # Single post card component
+│   │   ├── FeedEmpty.js
+│   │   ├── FeedError.js
+│   │   ├── FeedHeader.js
+│   │   ├── FeedLoading.js
+│   │   └── PostCard.js
 │   │
 │   └── profile/
-│       ├── LogoutButton.js        # Reusable logout button
-│       ├── ProfileCard.js         # User profile information card
-│       ├── ProfileErrorMessage.js # Profile error message UI
-│       └── ProfileHeader.js       # Profile screen header
+│       ├── LogoutButton.js
+│       ├── ProfileCard.js
+│       ├── ProfileErrorMessage.js
+│       └── ProfileHeader.js
 │
 ├── constants/
-│   └── colorscheme.js            # Centralized app color theme
+│   └── colorscheme.js              # App color theme
 │
 ├── redux/
-│   ├── hooks.js                  # Custom Redux hooks
-│   ├── postsSlice.js             # Posts and likes Redux slice
-│   └── store.js                  # Redux store + persist config
+│   ├── hooks.js                    # Custom Redux hooks
+│   ├── postsSlice.js               # Posts & likes state logic
+│   └── store.js                    # Redux + Persist config
 │
 ├── screens/
-│   ├── FeedScreen.js             # Main feed screen
-│   ├── ForgotPasswordScreen.js   # Password reset screen
-│   ├── LoginScreen.js            # Login screen
-│   ├── ProfileScreen.js          # User profile screen
-│   └── SignUpScreen.js           # User registration screen
+│   ├── FeedScreen.js
+│   ├── ForgotPasswordScreen.js
+│   ├── LoginScreen.js
+│   ├── ProfileScreen.js
+│   └── SignUpScreen.js
 │
 ├── services/
+│   ├── app/
+│   │   ├── feedService.js          # Feed-related logic (API + Firestore)
+│   │   └── profileService.js       # Profile-related logic
+│   │
 │   └── auth/
-│       └── registerService.js    # Firebase registration logic
+│       ├── forgotPasswordService.js # Password reset logic
+│       ├── loginService.js          # Firebase login logic
+│       └── registerService.js       # Firebase signup logic
 │
 ├── utils/
+│   ├── app/
+│   │   ├── feedUtils.js            # Feed helper functions
+│   │   └── profileUtils.js         # Profile helper functions
+│   │
 │   └── validation/
-│       └── registerValidation.js # Signup form validation helpers
-│
-└── ios/                          # iOS native project files
+│       ├── forgotPasswordValidation.js
+│       ├── loginValidation.js
+│       └── registerValidation.js
+
 ```
+
+---
 
 ## 📂 Folder Explanation
 
 ### `screens`
 
-Contains all main app screens such as login, signup, feed, profile, and forgot password.
+Contains all main UI screens (authentication + app flow).
+
+---
 
 ### `redux`
 
-Manages global application state using Redux Toolkit, including posts, likes, and persisted state.
+Handles global state using Redux Toolkit:
+
+* Posts data
+* Like/unlike state
+* Persisted state across app restarts
+
+---
 
 ### `api`
 
-Contains API request functions, such as fetching posts from the dummy API.
+Handles external API calls (e.g., fetching posts).
+
+---
 
 ### `components`
 
-Contains reusable UI components, divided into feature-based folders like `feed` and `profile`.
+Reusable UI components divided by feature:
+
+* `feed` → feed UI elements
+* `profile` → profile UI elements
+
+---
 
 ### `services`
 
-Contains business logic and service functions, such as Firebase authentication actions.
+Business logic layer:
+
+#### `services/auth`
+
+Handles Firebase authentication:
+
+* Login
+* Signup
+* Forgot password
+
+#### `services/app`
+
+Handles app-specific logic:
+
+* Feed operations
+* Profile operations
+
+---
 
 ### `utils`
 
-Contains helper functions such as validation logic and reusable utility methods.
+Helper and reusable logic:
+
+#### `utils/app`
+
+General-purpose helpers
+
+#### `utils/validation`
+
+Form validation logic for:
+
+* Login
+* Signup
+* Forgot password
+
+---
 
 ### `constants`
 
-Stores fixed values used across the app, such as colors, theme settings, and configuration constants.
+Centralized configuration:
+
+* Colors
+* Static values
+
+---
+
+## 🧠 Architecture Overview
+
+```text
+UI (Screens + Components)
+        ↓
+Redux (State Management)
+        ↓
+Services (Business Logic)
+        ↓
+API / Firebase (Data Source)
+```
+
+---
+
+## ⭐ Key Highlights
+
+* Clean and scalable folder structure
+* Separation of concerns (UI / logic / data)
+* Firebase + Redux integration
+* User-based like system
+* Persistent state using Redux Persist
 
 ---
 
